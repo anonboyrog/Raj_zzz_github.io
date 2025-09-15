@@ -1,0 +1,382 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Hub & Notes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.5s ease;
+        }
+        .theme-work { background-color: #0f172a; /* slate-900 */ }
+        .theme-break { background-color: #1e293b; /* slate-800 */ }
+        .technique-btn { transition: all 0.2s ease-in-out; position: relative; }
+        .technique-btn.active { background-color: #4f46e5; color: #ffffff; transform: translateY(-2px); box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.39); }
+        .progress-ring__circle { transition: stroke-dashoffset 0.5s; transform: rotate(-90deg); transform-origin: 50% 50%; }
+        #history-list li, .task-item { background-color: #1e293b; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+        #history-list li .date { font-size: 12px; color: #94a3b8; }
+        .task-item.completed span { text-decoration: line-through; color: #64748b; }
+        .tab-btn.active { border-color: #6366f1; color: #e0e7ff; }
+        .completion-counter { position: absolute; top: -8px; right: -8px; background-color: #38bdf8; color: #0c4a6e; border-radius: 9999px; width: 22px; height: 22px; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; border: 2px solid #1e293b; transform: scale(0); transition: transform 0.3s ease; }
+        .completion-counter.visible { transform: scale(1); }
+        .settings-toggle { display: inline-flex; align-items: center; cursor: pointer; user-select: none; }
+        .settings-toggle-switch { width: 40px; height: 20px; background-color: #475569; border-radius: 9999px; position: relative; transition: background-color 0.2s ease; }
+        .settings-toggle-switch::before { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background-color: white; border-radius: 9999px; transition: transform 0.2s ease; }
+        .settings-toggle input:checked + .settings-toggle-switch { background-color: #4f46e5; }
+        .settings-toggle input:checked + .settings-toggle-switch::before { transform: translateX(20px); }
+        .ambient-btn.active { background-color: #4f46e5; box-shadow: 0 0 0 2px #4f46e5; }
+    </style>
+</head>
+<body class="theme-work text-white flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-slate-800/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md mx-auto">
+        <!-- Tabs -->
+        <div class="flex border-b border-slate-700 mb-6">
+            <button id="tab-hub" class="tab-btn flex-1 py-3 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition active">Study Hub</button>
+            <button id="tab-notes" class="tab-btn flex-1 py-3 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition">Notes & Targets</button>
+        </div>
+
+        <!-- App Content: Study Hub -->
+        <div id="app-hub">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                 <button data-technique="pomodoro" class="technique-btn active bg-slate-700 hover:bg-slate-600 rounded-lg py-2 px-3 text-sm font-semibold">Pomodoro<span id="count-pomodoro" class="completion-counter">0</span></button>
+                 <button data-technique="flowmodoro" class="technique-btn bg-slate-700 hover:bg-slate-600 rounded-lg py-2 px-3 text-sm font-semibold">Flowmodoro<span id="count-flowmodoro" class="completion-counter">0</span></button>
+                 <button data-technique="5217" class="technique-btn bg-slate-700 hover:bg-slate-600 rounded-lg py-2 px-3 text-sm font-semibold">52/17<span id="count-5217" class="completion-counter">0</span></button>
+                 <button data-technique="einstein" class="technique-btn bg-slate-700 hover:bg-slate-600 rounded-lg py-2 px-3 text-sm font-semibold">Einstein<span id="count-einstein" class="completion-counter">0</span></button>
+            </div>
+            <div class="relative w-48 h-48 sm:w-60 sm:h-60 mx-auto mb-6 flex items-center justify-center">
+                <svg class="absolute top-0 left-0 w-full h-full" viewBox="0 0 120 120">
+                    <circle class="text-slate-700" stroke-width="8" stroke="currentColor" fill="transparent" r="56" cx="60" cy="60" />
+                    <circle id="progress-ring" class="progress-ring__circle text-indigo-500" stroke-width="8" stroke-linecap="round" stroke="currentColor" fill="transparent" r="56" cx="60" cy="60" />
+                </svg>
+                <div class="text-center">
+                    <p id="timer-display" class="text-4xl sm:text-5xl font-bold tabular-nums">25:00</p>
+                    <p id="session-label" class="text-slate-400 font-semibold tracking-wider uppercase text-sm mt-1">Work</p>
+                </div>
+            </div>
+            <div class="flex justify-center items-center gap-2 sm:gap-4 mb-6">
+                 <button id="start-pause-btn" class="bg-indigo-600 hover:bg-indigo-700 rounded-full w-28 h-12 text-lg font-bold flex items-center justify-center transition-transform transform hover:scale-105">Start</button>
+                 <button id="reset-btn" class="bg-slate-700 hover:bg-slate-600 rounded-full w-12 h-12 flex items-center justify-center transition-transform transform hover:scale-105" title="Reset Timer"><svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/></svg></button>
+                 <button id="skip-btn" class="bg-slate-700 hover:bg-slate-600 rounded-full w-12 h-12 flex items-center justify-center transition-transform transform hover:scale-105" title="Skip Session"><svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 4 10 8-10 8V4z"/><path d="M19 5v14"/></svg></button>
+                 <button id="settings-btn" class="bg-slate-700 hover:bg-slate-600 rounded-full w-12 h-12 flex items-center justify-center transition-transform transform hover:scale-105" title="Settings"><svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2.4l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1 0 2.4l.15-.08a2 2 0 0 0 .73-2.73l.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+            <div class="text-center mb-4">
+                 <p class="text-sm text-slate-400 mb-2">Ambient Sounds</p>
+                 <div class="flex justify-center gap-2">
+                      <button data-sound="rain" class="ambient-btn bg-slate-700/50 hover:bg-slate-600 rounded-full w-10 h-10 flex items-center justify-center transition" title="Rain">🌧️</button>
+                      <button data-sound="cafe" class="ambient-btn bg-slate-700/50 hover:bg-slate-600 rounded-full w-10 h-10 flex items-center justify-center transition" title="Coffee Shop">☕</button>
+                      <button data-sound="forest" class="ambient-btn bg-slate-700/50 hover:bg-slate-600 rounded-full w-10 h-10 flex items-center justify-center transition" title="Forest">🌲</button>
+                      <button data-sound="none" class="ambient-btn bg-slate-700/50 hover:bg-slate-600 rounded-full w-10 h-10 flex items-center justify-center transition" title="Mute">🔇</button>
+                 </div>
+            </div>
+        </div>
+
+        <!-- App Content: Notes & Targets -->
+        <div id="app-notes" class="hidden">
+            <h2 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 mb-4">Today's Targets</h2>
+            <form id="task-form" class="flex gap-2 mb-4">
+                <input type="text" id="task-input" class="bg-slate-700 flex-grow rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g., Finish Chapter 3" required>
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 rounded-lg px-5 py-2 font-semibold transition">Add</button>
+            </form>
+            <ul id="task-list" class="space-y-3 max-h-96 overflow-y-auto pr-2"></ul>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="history-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-slate-800 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-auto text-white">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Study History</h2>
+                <button id="close-history-btn" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <ul id="history-list" class="max-h-80 overflow-y-auto space-y-3 pr-2"></ul>
+            <div class="mt-6 text-center">
+                <button id="clear-history-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition">Clear History</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-slate-800 rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-auto text-white">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Settings</h2>
+                <button id="close-settings-btn" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <span class="font-semibold">Auto-start next session?</span>
+                    <label class="settings-toggle">
+                        <input type="checkbox" id="auto-start-toggle" class="hidden">
+                        <div class="settings-toggle-switch"></div>
+                    </label>
+                </div>
+                 <div class="flex justify-between items-center">
+                    <span class="font-semibold">Enable ticking sound?</span>
+                    <label class="settings-toggle">
+                        <input type="checkbox" id="ticking-toggle" class="hidden">
+                        <div class="settings-toggle-switch"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM Elements ---
+        const timerDisplay = document.getElementById('timer-display'), sessionLabel = document.getElementById('session-label'),
+              startPauseBtn = document.getElementById('start-pause-btn'), resetBtn = document.getElementById('reset-btn'),
+              skipBtn = document.getElementById('skip-btn'), settingsBtn = document.getElementById('settings-btn'),
+              techniqueBtns = document.querySelectorAll('.technique-btn'), explanationTitle = document.getElementById('explanation-title'),
+              explanationText = document.getElementById('explanation-text'), progressRing = document.getElementById('progress-ring'),
+              body = document.body;
+        // History Modal
+        const historyModal = document.getElementById('history-modal'), closeHistoryBtn = document.getElementById('close-history-btn'),
+              historyList = document.getElementById('history-list'), clearHistoryBtn = document.getElementById('clear-history-btn'),
+              historyBtn = document.querySelector('[title="View History"]'); // Not in this HTML, but for completeness
+        // Settings Modal
+        const settingsModal = document.getElementById('settings-modal'), closeSettingsBtn = document.getElementById('close-settings-btn'),
+              autoStartToggle = document.getElementById('auto-start-toggle'), tickingToggle = document.getElementById('ticking-toggle');
+        // Tabs
+        const tabHub = document.getElementById('tab-hub'), tabNotes = document.getElementById('tab-notes'),
+              appHub = document.getElementById('app-hub'), appNotes = document.getElementById('app-notes');
+        // Notes & Targets
+        const taskForm = document.getElementById('task-form'), taskInput = document.getElementById('task-input'),
+              taskList = document.getElementById('task-list');
+        // Ambiance
+        const ambientBtns = document.querySelectorAll('.ambient-btn');
+
+        // --- Config & State ---
+        const radius = progressRing.r.baseVal.value, circumference = radius * 2 * Math.PI;
+        progressRing.style.strokeDasharray = `${circumference} ${circumference}`;
+        progressRing.style.strokeDashoffset = circumference;
+        
+        const techniques = {
+            pomodoro: { name: "Pomodoro", work: 25 * 60, shortBreak: 5 * 60, longBreak: 15 * 60, cycles: 4 },
+            flowmodoro: { name: "Flowmodoro", work: 45 * 60, shortBreak: 15 * 60, longBreak: 15 * 60, cycles: 2 },
+            '5217': { name: "52/17 Method", work: 52 * 60, shortBreak: 17 * 60, longBreak: 17 * 60, cycles: Infinity },
+            einstein: { name: "Einstein Technique", work: 50 * 60, shortBreak: 10 * 60, longBreak: 10 * 60, cycles: Infinity }
+        };
+
+        const sounds = {
+            rain: new Audio('https://www.soundjay.com/nature/rain-07.mp3'),
+            cafe: new Audio('https://www.soundjay.com/ambience/sounds/coffee-shop-1.mp3'),
+            forest: new Audio('https://www.soundjay.com/nature/forest-02.mp3'),
+            tick: new Audio('https://www.soundjay.com/clock/sounds/clock-ticking-1.mp3'),
+        };
+        Object.values(sounds).forEach(sound => sound.loop = true);
+
+        let state = {
+            currentTechnique: 'pomodoro', timerId: null, timeLeft: techniques.pomodoro.work, totalTime: techniques.pomodoro.work,
+            isPaused: true, isWorkSession: true, cycleCount: 0, autoStart: false, ticking: false, activeSound: null,
+        };
+
+        // --- Timer Functions ---
+        const updateTimerDisplay = () => {
+            const minutes = Math.floor(state.timeLeft / 60).toString().padStart(2, '0');
+            const seconds = (state.timeLeft % 60).toString().padStart(2, '0');
+            const timeString = `${minutes}:${seconds}`;
+            timerDisplay.textContent = timeString;
+            document.title = `${timeString} - ${sessionLabel.textContent} | Study Hub`;
+            const percent = (state.totalTime - state.timeLeft) / state.totalTime;
+            progressRing.style.strokeDashoffset = circumference - percent * circumference;
+        };
+        
+        const tick = () => {
+            if (state.timeLeft > 0) {
+                state.timeLeft--;
+                updateTimerDisplay();
+            } else {
+                switchSession();
+            }
+        };
+
+        const startTimer = () => {
+            if (!state.isPaused) return;
+            state.isPaused = false;
+            startPauseBtn.textContent = "Pause";
+            if (Tone.context.state !== 'running') Tone.context.resume();
+            state.timerId = setInterval(tick, 1000);
+            if (state.ticking && state.isWorkSession) sounds.tick.play().catch(e => {});
+        };
+
+        const pauseTimer = () => {
+            if (state.isPaused) return;
+            state.isPaused = true;
+            startPauseBtn.textContent = "Start";
+            clearInterval(state.timerId);
+            state.timerId = null;
+            sounds.tick.pause();
+        };
+
+        const switchSession = (skipped = false) => {
+            const tech = techniques[state.currentTechnique];
+            const wasWorkSession = state.isWorkSession;
+            state.isWorkSession = !state.isWorkSession;
+            
+            if (wasWorkSession && !skipped) {
+                saveSessionToHistory();
+                updateDailyCount(state.currentTechnique);
+            }
+
+            if (state.isWorkSession) {
+                sessionLabel.textContent = "Work";
+                state.timeLeft = tech.work;
+                body.classList.replace('theme-break', 'theme-work');
+            } else {
+                state.cycleCount++;
+                sessionLabel.textContent = (tech.cycles !== Infinity && state.cycleCount % tech.cycles === 0) ? "Long Break" : "Short Break";
+                state.timeLeft = (sessionLabel.textContent === "Long Break") ? tech.longBreak : tech.shortBreak;
+                body.classList.replace('theme-work', 'theme-break');
+            }
+            state.totalTime = state.timeLeft;
+            playNotification();
+            updateTimerDisplay();
+
+            pauseTimer();
+            if (state.autoStart) startTimer();
+        };
+        
+        const resetTimer = () => {
+            pauseTimer();
+            const tech = techniques[state.currentTechnique];
+            state.isWorkSession = true; state.cycleCount = 0;
+            state.timeLeft = tech.work; state.totalTime = tech.work;
+            sessionLabel.textContent = "Work";
+            body.classList.replace('theme-break', 'theme-work');
+            updateTimerDisplay();
+        };
+
+        const selectTechnique = (key) => {
+            state.currentTechnique = key;
+            techniqueBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.technique === key));
+            resetTimer();
+        };
+
+        // --- Sound & UI Functions ---
+        const playNotification = () => { try { const synth = new Tone.Synth().toDestination(); synth.triggerAttackRelease("C5", "0.5"); } catch (e) {} };
+        const playAmbientSound = (soundKey) => {
+            if (state.activeSound) state.activeSound.pause();
+            ambientBtns.forEach(btn => btn.classList.remove('active'));
+            if (soundKey !== 'none' && sounds[soundKey]) {
+                state.activeSound = sounds[soundKey];
+                state.activeSound.play().catch(e => {});
+                document.querySelector(`.ambient-btn[data-sound="${soundKey}"]`).classList.add('active');
+            } else {
+                state.activeSound = null;
+            }
+        };
+
+        // --- Data & State Management (LocalStorage) ---
+        const getHistory = () => JSON.parse(localStorage.getItem('studyHistory')) || [];
+        const saveSessionToHistory = () => {
+            const tech = techniques[state.currentTechnique];
+            const session = { technique: tech.name, duration: tech.work / 60, timestamp: new Date().toISOString() };
+            const history = getHistory();
+            history.unshift(session);
+            
+            localStorage.setItem('studyHistory', JSON.stringify(history));
+        };
+        const getDailyCounts = () => {
+            const today = new Date().toISOString().split('T')[0];
+            const counts = JSON.parse(localStorage.getItem('dailyCounts')) || {};
+            return (counts.date !== today) ? { date: today } : counts;
+        };
+        const updateDailyCount = (key) => {
+            const counts = getDailyCounts();
+            counts[key] = (counts[key] || 0) + 1;
+            localStorage.setItem('dailyCounts', JSON.stringify(counts));
+            renderDailyCounts();
+        };
+        const getTasks = () => JSON.parse(localStorage.getItem('tasks')) || [];
+        const saveTasks = (tasks) => localStorage.setItem('tasks', JSON.stringify(tasks));
+        const loadSettings = () => {
+            state.autoStart = localStorage.getItem('autoStart') === 'true';
+            autoStartToggle.checked = state.autoStart;
+            state.ticking = localStorage.getItem('ticking') === 'true';
+            tickingToggle.checked = state.ticking;
+        };
+
+        // --- Rendering ---
+        const renderDailyCounts = () => {
+            const counts = getDailyCounts();
+            Object.keys(techniques).forEach(key => {
+                const el = document.getElementById(`count-${key}`);
+                if (el) {
+                    const count = counts[key] || 0;
+                    el.textContent = count;
+                    el.classList.toggle('visible', count > 0);
+                }
+            });
+        };
+        const renderTasks = () => {
+            const tasks = getTasks();
+            taskList.innerHTML = tasks.length === 0 ? '<li class="text-slate-400 text-center justify-center bg-transparent">No targets for today.</li>'
+                : tasks.map((task, index) => `
+                <li class="task-item ${task.completed ? 'completed' : ''}">
+                    <label class="flex items-center gap-3 cursor-pointer flex-grow">
+                        <input type="checkbox" data-index="${index}" class="form-checkbox h-5 w-5 rounded bg-slate-600 border-slate-500 text-indigo-500 focus:ring-indigo-500" ${task.completed ? 'checked' : ''}>
+                        <span>${task.text}</span>
+                    </label>
+                    <button data-index="${index}" class="text-slate-500 hover:text-red-500 transition text-lg font-bold">&times;</button>
+                </li>`).join('');
+        };
+        // ... (Add renderHistory function if needed for live updates) ...
+
+        // --- Event Handlers ---
+        taskForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const text = taskInput.value.trim();
+            if (text) {
+                const tasks = getTasks();
+                tasks.push({ text, completed: false });
+                saveTasks(tasks);
+                renderTasks();
+                taskInput.value = '';
+            }
+        });
+        taskList.addEventListener('click', (e) => {
+            const tasks = getTasks();
+            const index = e.target.dataset.index;
+            if (e.target.matches('input[type="checkbox"]')) {
+                tasks[index].completed = !tasks[index].completed;
+            } else if (e.target.matches('button')) {
+                tasks.splice(index, 1);
+            } else { return; }
+            saveTasks(tasks);
+            renderTasks();
+        });
+
+        // --- Event Listeners Setup ---
+        startPauseBtn.addEventListener('click', () => state.isPaused ? startTimer() : pauseTimer());
+        resetBtn.addEventListener('click', resetTimer);
+        skipBtn.addEventListener('click', () => switchSession(true));
+        techniqueBtns.forEach(btn => btn.addEventListener('click', () => selectTechnique(btn.dataset.technique)));
+        ambientBtns.forEach(btn => btn.addEventListener('click', () => playAmbientSound(btn.dataset.sound)));
+        // Tabs
+        tabHub.addEventListener('click', () => { appHub.classList.remove('hidden'); appNotes.classList.add('hidden'); tabHub.classList.add('active'); tabNotes.classList.remove('active'); });
+        tabNotes.addEventListener('click', () => { appNotes.classList.remove('hidden'); appHub.classList.add('hidden'); tabNotes.classList.add('active'); tabHub.classList.remove('active'); });
+        // Modals
+        settingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+        closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+        // History button doesn't exist in HTML, add it back if needed
+        // Toggles
+        autoStartToggle.addEventListener('change', () => { state.autoStart = autoStartToggle.checked; localStorage.setItem('autoStart', state.autoStart); });
+        tickingToggle.addEventListener('change', () => { state.ticking = tickingToggle.checked; localStorage.setItem('ticking', state.ticking); if (!state.ticking) sounds.tick.pause(); });
+
+        // --- Initial Setup ---
+        selectTechnique('pomodoro');
+        renderDailyCounts();
+        renderTasks();
+        loadSettings();
+    });
+    </script>
+</body>
+</html>
